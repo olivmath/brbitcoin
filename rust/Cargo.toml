@@ -1,0 +1,11 @@
+[package]
+name = "brbitcoin"
+version = "0.1.0"
+authors = ["Luca Oliveira <olivmath@protonmail.com>"]
+edition = "2021"
+description = "A Bitcoin-related library providing cryptographic utilities"
+license = "MIT"
+repository = "https://github.com/olivmath/brbitcoin"
+documentation = "https://docs.rs/brbitcoin"
+keywords = ["bitcoin", "cryptography", "blockchain"]
+categories = ["cryptography", "no-std"] 
