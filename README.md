@@ -1,6 +1,6 @@
 # 🇧🇷 BrBitcoin SDK
 
-> [!TIP] > **A simple, secure, flexible Bitcoin SDK for Python, Typescript and Rust**
+- **A simple, secure, flexible Bitcoin SDK for Python, Typescript and Rust**
 
 ## Overview
 
