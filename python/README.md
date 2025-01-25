@@ -1,10 +1,9 @@
 # 🇧🇷 BrBitcoin Python SDK
 
-> [!NOTE]
-> This SDK is under active development. Report issues on [GitHub](https://github.com/youruser/brbitcoin).
 
-> [!WARNING]
->  Always test with Regtest before mainnet usage.
+![hello-world](https://github.com/user-attachments/assets/65597643-95cf-4583-8653-26eb2deb3fc9)
+
+
 
 ## Features
 
@@ -28,6 +27,9 @@ pip install brbitcoin
 ```
 
 ## 🚀 Quick Start
+
+> [!WARNING]
+>  Always test with Regtest before MAINNET usage.
 
 ### 1. Wallet Management
 
