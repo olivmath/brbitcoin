@@ -1,7 +1,10 @@
 # 🇧🇷 BrBitcoin Python SDK
 
-> [!WARNING]
+> [!NOTE]
 > This SDK is under active development. Report issues on [GitHub](https://github.com/youruser/brbitcoin).
+
+> [!WARNING]
+>  Always test with Regtest before mainnet usage.
 
 ## Features
 
@@ -31,15 +34,15 @@ pip install brbitcoin
 ```python
 from brbitcoin import Wallet, Network
 
-# Create random wallet (default: testnet)
+# Create random HD wallet (testnet by default)
 with Wallet.create(network=Network.TESTNET) as wallet:
-    print(f"New wallet address: {wallet.address}")
-    # Warning: Only export keys for backup purposes!
-    print(f"Private key: {wallet.export_encrypted(path="wallet.json",password="pass123")}")
+    print(f"New address: {wallet.address}")
+    # Always store encrypted backups
+    wallet.export_encrypted("wallet.bak", password=os.environ["WALLET_PASS"])
 
-# Import from existing key (hex format)
-with Wallet.from_private_key("beefcafe...", network=Network.REGTEST) as wallet:
-    print(f"Imported wallet address: {wallet.address}")
+# Import from existing hex private key
+with Wallet.from_private_key("beefcafe...") as wallet:
+    print(f"Imported address: {wallet.address}")
 
 # Create from BIP39 mnemonic
 mnemonic = "absorb lecture valley scissors giant evolve planet rotate siren chaos"
@@ -56,11 +59,10 @@ from brbitcoin import Wallet, get_address_info
 
 info = get_address_info("bc1q...", Network.MAINNET)
 print(f"Balance: {info.balance} satoshis")
-print(f"UTXO count: {info.utxo}")
+print(f"UTXOs: {len(info.utxos)}")
 
-with Wallet.create(network=Network.TESTNET) as wallet:
-    balance = wallet.balance()
-    print(f"Balance: {balance} satoshis")
+with Wallet(network=Network.TESTNET) as wallet:
+    print(f"Wallet balance: {wallet.balance} sats")
 ```
 
 #### 2.2 Transaction Inspection
@@ -91,7 +93,7 @@ genesis = get_block_by_number(0, Network.MAINNET)
 print(f"Genesis block timestamp: {genesis.timestamp}")
 ```
 
-### 3. Sending Bitcoin
+### 3. Transaction Building
 
 #### 3.1 High-Level (Recommended)
 
@@ -107,7 +109,7 @@ with Wallet(network=Network.REGTEST) as wallet:
     print(f"Broadcasted TX ID: {txid}")
 ```
 
-#### 3.2 Mid-Level (Manual Control)
+#### 3.2 Mid-Level Control
 
 ```python
 from brbitcoin import Wallet, Transaction, to_btc
@@ -124,13 +126,14 @@ with Wallet.from_private_key("fff...") as wallet:
         .add_input(utxos[0])
         .add_output(RECEIVER, to_btc(AMOUNT))
         .fee(to_btc(FEE))
+        # .estimate_fee()
         .sign(wallet)
         .broadcast()
     )
     print(f"Broadcasted TX ID: {txid}")
 ```
 
-#### 3.3 Low-Level (Custom Scripts)
+#### 3.3 Low-Level Scripting
 
 ```python
 from brbitcoin import Wallet, Script, Transaction
@@ -159,12 +162,7 @@ with Wallet(network=Network.REGTEST) as wallet:
     print(f"Broadcasted TX ID: {txid}")
 ```
 
-### 4. Security Notes
-
-- **Automatic Zeroization**: Private keys are wiped from memory when:
-  - The context manager (`with`) is closed.
-  - Methods `.sign()` or `.broadcast()` complete.
-  - The `Wallet` object is destroyed.
+### 4. Security Practices
 
 #### 4.1 Encrypted Private Key Backup
 
@@ -184,68 +182,68 @@ with Wallet.from_encrypted("wallet.json", password="pass123") as wallet:
     print(f"Recovered address: {w.address}")
 ```
 
+#### 4.3 Zeroization Guarantees
+
+```python
+# Keys are wiped:
+# - When context manager exits
+# - After signing/broadcast
+# - On object destruction
+with Wallet.from_private_key("c0ffee...") as wallet:
+    txid = wallet.send("bc1q...", 0.001)
+    # Key no longer in memory here
+```
+
 ### 5. Node Management
 
 #### 5.1 Network Configuration
 
 ```python
-from brbitcoin import Wallet, Node, Network
+from brbitcoin import ClientNode
 
-client = Node(
+# Connect to Bitcoin Core
+client = ClientNode(
     network=Network.REGTEST,
-    rpc_user="your_user",
-    rpc_password="your_pass",
-    host="localhost"
-    rpc_url=18444
+    rpc_user="user",
+    rpc_password="pass",
+    host="localhost",
+    port=18444
 )
 ```
 
-#### 5.2 Basic Node Operations
-
-```python
-# Get node information
-info = client.get_info()
-print(f"Block height: {info.blocks}")
-print(f"Node version: {info.version}")
-
-# Generate blocks (Regtest only)
-if client.network == Network.REGTEST:
-    new_blocks = client.generate_blocks(10, address="bcrt1q...")
-    print(f"Generated {len(new_blocks)} blocks")
-
-# Get mempool status
-mempool = client.get_mempool()
-print(f"{len(mempool)} transactions in mempool")
-
-# Estimate smart fee
-fee_rate = client.estimate_fee(6)  # Fee for 6-block confirmation
-print(f"Recommended fee rate: {fee_rate} BTC/kvB")
-
-# Get block header
-header = client.get_block_header("000000000000000000015a0...")
-print(f"Block timestamp: {header.timestamp}")
-```
-
-#### 5.3 Direct RPC Commands
+#### 5.2 Node Operations
 
 ```python
 # Get blockchain info
-chain_info = client.command("getblockchaininfo")
-print(f"Chain: {chain_info['chain']}, Blocks: {chain_info['blocks']}")
+info = client.get_blockchain_info()
+print(f"Blocks: {info.blocks}, Difficulty: {info.difficulty}")
 
-# Generate blocks (regtest only)
+# Generate regtest blocks
 if client.network == Network.REGTEST:
-    blocks = client.command("generatetoaddress", 100, "bcrt1q...")
-    print(f"Mined {len(blocks)} blocks")
+    blocks = client.generate_to_address(10, "bcrt1q...")
+    print(f"Mined block: {blocks[-1]}")
 
-# Send raw transaction
-raw_tx = "020000000001..."
-tx_id = client.command("sendrawtransaction", raw_tx)
-print(f"Broadcasted TX: {tx_id}")
-
-full_help = client.command("help")
-print("Available commands:", list(full_help.keys()))
+# Get fee estimates
+fees = electrum_client.estimate_fee(targets=[1, 3, 6])
+print(f"1-block fee: {fees[1]} BTC/kvB")
 ```
+
+#### 5.3 Direct RPC Access
+
+```python
+# Raw RPC commands
+mempool = client.rpc("getmempoolinfo")
+print(f"Mempool size: {mempool['size']}")
+
+# Batch requests
+results = client.batch_rpc([
+    ("getblockcount", []),
+    ("getblockhash", [0]),
+    ("getblockheader", ["000000000019d6..."])
+])
+print(f"Block count: {results[0]}")
+```
+
 
 #### 5.4 Bitcoin Core RPC Command Reference (Partial)
 
