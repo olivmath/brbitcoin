@@ -1,16 +1,17 @@
 # 🇧🇷 BrBitcoin Python SDK
 
-
 ![hello-world](https://github.com/user-attachments/assets/65597643-95cf-4583-8653-26eb2deb3fc9)
 
-
-
-## Features
+## Design Decision
 
 - **Automatic Zeroization**: Sensitive data wiped from memory using context managers
 - **Multi-Layer Security**: Hierarchical deterministic wallets with encrypted backups
 - **Network Agnostic**: Supports Regtest/Testnet/Mainnet via multiple backends
 - **Full RPC Support**: Direct access to Bitcoin Core JSON-RPC API
+
+## Features
+
+1.
 
 ## 📦 Installation
 
@@ -29,7 +30,7 @@ pip install brbitcoin
 ## 🚀 Quick Start
 
 > [!WARNING]
->  Always test with Regtest before MAINNET usage.
+> Always test with Regtest before MAINNET usage.
 
 ### 1. Wallet Management
 
@@ -246,7 +247,6 @@ results = client.batch_rpc([
 print(f"Block count: {results[0]}")
 ```
 
-
 #### 5.4 Bitcoin Core RPC Command Reference (Partial)
 
 | Category       | Command                | Description                   | Example Usage                                                      |
@@ -267,3 +267,62 @@ print(f"Block count: {results[0]}")
 |                | `signrawtransaction`   | Sign raw transaction          | `signrawtransaction "hex"`                                         |
 | **Control**    | `stop`                 | Shut down node                | `stop`                                                             |
 |                | `uptime`               | Node uptime                   | `uptime`                                                           |
+
+### 6. Hierarchical Deterministic (HD) Wallets
+
+#### 6.1 Creating HD Wallets (BIP32/BIP44 compliant)
+
+```python
+from brbitcoin import Wallet, Network
+
+with Wallet.create_hd() as hd_wallet:
+    first_address = hd_wallet.derive_address(0)
+    second_address = hd_wallet.derive_address(1)
+    hundredth_address = hd_wallet.derive_address(99)
+
+    print(f"Master xpub: {hd_wallet.xpub}")
+    print(f"Derivation path: {hd_wallet.derivation_path}")
+    print(f"First Address: {first_address}")
+    print(f"Second Address: {second_address}")
+    print(f"Hundredth Address : {hundredth_address}")
+```
+
+#### 6.3 Advanced Derivation Paths
+
+```python
+# Custom derivation schemes
+with Wallet.create_hd(
+    purpose=84,  # BIP84 (SegWit)
+    network=Network.MAINNET,
+    account_index=3,
+) as segwit_wallet:
+    print(f"Native SegWit address: {segwit_wallet.address}")
+
+# Custom derivation path
+with Wallet.create_hd(
+    network=Network.MAINNET,
+    path="m/44'/0'/1'",
+) as hd_wallet:
+    print(f"Custom path derivation address: {hd_wallet.derive_address(2)}")
+```
+
+#### 6.4 HardWallet Security Feature
+
+```python
+with Wallet.from_hardware_device(
+    device_type="ledger",
+    network=Network.MAINNET,
+) as hard_wallet:
+    txid = hard_wallet.send("bc1q...", 0.01)
+    print(f"Broadcasted TX ID: {txid}")
+```
+
+#### 6.5 HD Wallet Specifications Support
+
+| Standard | Purpose                     | Example Path    |
+| -------- | --------------------------- | --------------- |
+| BIP32    | Hierarchical Key Derivation | m/xpub/0/1      |
+| BIP39    | Mnemonic Phrase Generation  | 24-word seed    |
+| BIP44    | Multi-Account Hierarchy     | m/44'/0'/0'/0/0 |
+| BIP84    | Native SegWit (Bech32)      | m/84'/0'/0'/0/0 |
+| BIP49    | Nested SegWit (P2SH-P2WPKH) | m/49'/0'/0'/0/0 |
