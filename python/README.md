@@ -2,16 +2,24 @@
 
 ![hello-world](https://github.com/user-attachments/assets/65597643-95cf-4583-8653-26eb2deb3fc9)
 
-## Design Decision
+## Design Principles
 
 - **Automatic Zeroization**: Sensitive data wiped from memory using context managers
-- **Multi-Layer Security**: Hierarchical deterministic wallets with encrypted backups
-- **Network Agnostic**: Supports Regtest/Testnet/Mainnet via multiple backends
-- **Full RPC Support**: Direct access to Bitcoin Core JSON-RPC API
+- **Hierarchical Security**: BIP32/BIP39/BIP44 compliant HD wallets with encrypted backups
+- **Network Agnostic**: Unified API for Regtest/Testnet/Mainnet operations
+- **Full RPC Access**: Direct Bitcoin Core JSON-RPC integration
+- **Type Safety**: Comprehensive type hints for better developer experience
 
 ## Features
 
-1.
+- 🔐 Secure key management with memory zeroization
+- 💳 HD wallet support (BIP32, BIP39, BIP44, BIP84)
+- 📡 Multiple network backends (Bitcoin Core, Electrum, Custom)
+- 📦 PSBT (Partially Signed Bitcoin Transaction) support
+- ⚡️ Async-first architecture for network operations
+- 🔄 UTXO management with automatic coin selection
+- 📊 Blockchain data inspection utilities
+- 🛠️ Low-level Bitcoin script builder
 
 ## 📦 Installation
 
@@ -30,22 +38,22 @@ pip install brbitcoin
 ## 🚀 Quick Start
 
 > [!WARNING]
-> Always test with Regtest before MAINNET usage.
+> Always test with REGTEST before MAINNET usage.
 
 ### 1. Wallet Management
 
 ```python
 from brbitcoin import Wallet, Network
+import os
 
 # Create random HD wallet (testnet by default)
-with Wallet.create(network=Network.TESTNET) as wallet:
-    print(f"New address: {wallet.address}")
-    # Always store encrypted backups
-    wallet.export_encrypted("wallet.bak", password=os.environ["WALLET_PASS"])
+with Wallet.create() as wallet:
+    print(f"Testnet new address: {wallet.address}")
+    wallet.export_encrypted("wallet.json", password=os.environ["WALLET_PASS"])
 
-# Import from existing hex private key
-with Wallet.from_private_key("beefcafe...") as wallet:
-    print(f"Imported address: {wallet.address}")
+# Import from existing key
+with Wallet.from_private_key("beefcafe...", network=Network.REGTEST) as wallet:
+    print(f"Regtest address: {wallet.address}")
 
 # Create from BIP39 mnemonic
 mnemonic = "absorb lecture valley scissors giant evolve planet rotate siren chaos"
@@ -89,11 +97,13 @@ with Wallet.from_private_key("beef...") as wallet:
 ```python
 from brbitcoin import get_block
 
-block = get_block_by_hash("000000000019d6...", Network.MAINNET)
-print(f"The Block has {len(block.txn)} transactions")
+# By hash
+block = get_block("000000000019d6...", Network.MAINNET)
+print(f"Block height: {block.height}")
 
-genesis = get_block_by_number(0, Network.MAINNET)
-print(f"Genesis block timestamp: {genesis.timestamp}")
+# By number
+genesis = get_block(0, Network.MAINNET)
+print(f"Genesis timestamp: {genesis.timestamp}")
 ```
 
 ### 3. Transaction Building
@@ -165,27 +175,124 @@ with Wallet(network=Network.REGTEST) as wallet:
     print(f"Broadcasted TX ID: {txid}")
 ```
 
-### 4. Security Practices
+### 4. Taproot Transactions (BIP340/341/342)
 
-#### 4.1 Encrypted Private Key Backup
+#### 4.1 Generating Taproot Address
 
 ```python
-from brbitcoin import Wallet
+from brbitcoin import Wallet, TaprootBuilder, Script, Op
 
-with Wallet.create() as wallet:
-    wallet.export_encrypted(path="wallet.json",password="pass123")
+# Generate internal key
+with Wallet.create(network=Network.MAINNET) as wallet:
+    internal_key = wallet.taproot_internal_key()
+
+    # Build Taproot script tree
+    script = Script().push_op_hash_160().push_bytes(b"my_hash160").push_op_equal()
+    taproot = TaprootBuilder(internal_key).add_leaf_script(script).finalize()
+
+    print(f"Taproot Address: {taproot.address}")
+    print(f"Control Block: {taproot.control_block.hex()}")
 ```
 
-#### 4.2 Restore from Encrypted backup
+#### 4.2 Sending to Taproot Address
+
+```python
+with Wallet(network=Network.REGTEST) as sender:
+    receiver_taproot = "bc1p..."
+
+    txid = (
+        Transaction(network=Network.REGTEST)
+        .add_input(sender.utxos()[0])
+        .add_output_taproot(receiver_taproot, 0.01)  # 0.01 BTC
+        .set_change(sender.address)
+        .estimate_fee()
+        .sign(sender)
+        .broadcast()
+    )
+    print(f"Taproot TX broadcasted: {txid}")
+```
+
+#### 4.3 Spending from Taproot (Key Path)
+
+```python
+# Spending using Schnorr signature
+with Wallet.from_taproot_internal_key("internal_key_hex") as wallet:
+    utxo = wallet.utxos()[0]
+
+    tx = (
+        Transaction(network=Network.MAINNET)
+        .add_taproot_input(utxo)
+        .add_output("bc1q...", 0.009)
+        .set_change(wallet.taproot_address)
+        .estimate_fee()
+        .sign_taproot(wallet)
+        .broadcast()
+    )
+    print(f"Key path spend TX: {tx.txid}")
+```
+
+#### 4.4 Spending from Taproot (Script Path)
+
+```python
+from brbitcoin import TaprootScriptSolution, Script
+
+# Reveal script and provide solution
+
+preimage = b"secret123"
+script = Script().push_op_hash160().push_bytes(hash160(preimage)).push_op_equal()
+
+with Wallet(network=Network.REGTEST) as spender:
+    solution = TaprootScriptSolution(
+        script=script,
+        solution_ops=[Script.op_push_bytes, preimage]
+    )
+
+    tx = (
+        Transaction(network=Network.REGTEST)
+        .add_taproot_input(utxo, solution=solution)
+        .add_output("bc1q...", 0.0095)
+        .sign_taproot(spender)
+        .broadcast()
+    )
+    print(f"Script path spend TX: {tx.txid}")
+```
+
+#### 4.5 Taproot Benefits
+
+- Privacy: All spends look identical on-chain
+- Efficiency: Smaller witness size vs traditional multisig
+- Flexibility: Combine multiple spending conditions
+- Standard: BIP340 (Schnorr), BIP341 (Taproot), BIP342 (Tapscript)
+
+### 5. Security Practices
+
+#### 5.1 Encrypted Private Key Backup
+
+```python
+from brbitcoin import Wallet
+import os
+
+PATH = "wallet.json"
+PASS = os.environ["WALLET_PASS"]
+
+with Wallet.create() as wallet:
+    wallet.export_encrypted(path=PATH, password=PASS)
+```
+
+#### 5.2 Restore from Encrypted backup
 
 ```python
 from brbitcoin import Wallet
 
-with Wallet.from_encrypted("wallet.json", password="pass123") as wallet:
+
+PATH = "wallet.json"
+PASS = os.environ["WALLET_PASS"]
+
+with Wallet.from_encrypted(path=PATH, password=PASS) as wallet:
     print(f"Recovered address: {w.address}")
 ```
 
-#### 4.3 Zeroization Guarantees
+#### 5.3 Zeroization Guarantees
 
 ```python
 # Keys are wiped:
@@ -197,24 +304,24 @@ with Wallet.from_private_key("c0ffee...") as wallet:
     # Key no longer in memory here
 ```
 
-### 5. Node Management
+### 6. Node Management
 
-#### 5.1 Network Configuration
+#### 6.1 Network Configuration
 
 ```python
-from brbitcoin import ClientNode
+from brbitcoin import NodeClient
 
 # Connect to Bitcoin Core
-client = ClientNode(
+client = NodeClient(
     network=Network.REGTEST,
     rpc_user="user",
     rpc_password="pass",
     host="localhost",
-    port=18444
+    port=18443
 )
 ```
 
-#### 5.2 Node Operations
+#### 6.2 Node Operations
 
 ```python
 # Get blockchain info
@@ -231,7 +338,7 @@ fees = electrum_client.estimate_fee(targets=[1, 3, 6])
 print(f"1-block fee: {fees[1]} BTC/kvB")
 ```
 
-#### 5.3 Direct RPC Access
+#### 6.3 Direct RPC Access
 
 ```python
 # Raw RPC commands
@@ -247,7 +354,7 @@ results = client.batch_rpc([
 print(f"Block count: {results[0]}")
 ```
 
-#### 5.4 Bitcoin Core RPC Command Reference (Partial)
+#### 6.4 Bitcoin Core RPC Command Reference (Partial)
 
 | Category       | Command                | Description                   | Example Usage                                                      |
 | -------------- | ---------------------- | ----------------------------- | ------------------------------------------------------------------ |
@@ -268,9 +375,9 @@ print(f"Block count: {results[0]}")
 | **Control**    | `stop`                 | Shut down node                | `stop`                                                             |
 |                | `uptime`               | Node uptime                   | `uptime`                                                           |
 
-### 6. Hierarchical Deterministic (HD) Wallets
+### 7. Hierarchical Deterministic (HD) Wallets
 
-#### 6.1 Creating HD Wallets (BIP32/BIP44 compliant)
+#### 7.1 Creating HD Wallets (BIP32/BIP44 compliant)
 
 ```python
 from brbitcoin import Wallet, Network
@@ -287,7 +394,7 @@ with Wallet.create_hd() as hd_wallet:
     print(f"Hundredth Address : {hundredth_address}")
 ```
 
-#### 6.3 Advanced Derivation Paths
+#### 7.2 Advanced Derivation Paths
 
 ```python
 # Custom derivation schemes
@@ -306,23 +413,27 @@ with Wallet.create_hd(
     print(f"Custom path derivation address: {hd_wallet.derive_address(2)}")
 ```
 
-#### 6.4 HardWallet Security Feature
+#### 7.3 Hardware Wallet Integration
 
 ```python
 with Wallet.from_hardware_device(
     device_type="ledger",
-    network=Network.MAINNET,
-) as hard_wallet:
-    txid = hard_wallet.send("bc1q...", 0.01)
+    network=Network.MAINNET
+) as hw_wallet:
+    txid = hw_wallet.send("bc1q...", 0.01)
     print(f"Broadcasted TX ID: {txid}")
 ```
 
-#### 6.5 HD Wallet Specifications Support
+#### 7.4 HD Wallet Supported Standards
 
-| Standard | Purpose                     | Example Path    |
-| -------- | --------------------------- | --------------- |
-| BIP32    | Hierarchical Key Derivation | m/xpub/0/1      |
-| BIP39    | Mnemonic Phrase Generation  | 24-word seed    |
-| BIP44    | Multi-Account Hierarchy     | m/44'/0'/0'/0/0 |
-| BIP84    | Native SegWit (Bech32)      | m/84'/0'/0'/0/0 |
-| BIP49    | Nested SegWit (P2SH-P2WPKH) | m/49'/0'/0'/0/0 |
+| Standard | Purpose                     | Example Path        |
+| -------- | --------------------------- | ------------------- |
+| BIP32    | Hierarchical Key Derivation | m/0'/1              |
+| BIP39    | Mnemonic Phrase Generation  | 24-word seed        |
+| BIP44    | Multi-Account Structure     | m/44'/0'/0'/0/0     |
+| BIP84    | Native SegWit (Bech32)      | m/84'/0'/0'/0/0     |
+| BIP174   | PSBT (Partially Signed Tx)  | PSBT format support |
+
+---
+
+# [License: MIT](../LICENSE)
