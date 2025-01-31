@@ -68,44 +68,43 @@ println!("Mainnet address: {}", wallet.address());
 #### 2.1 Address Information
 
 ```rust
-from brbitcoin import Wallet, get_address_info
+use brbitcoin::{Wallet, get_address_info};
 
-info = get_address_info("bc1q...", Network.MAINNET)
-print(f"Balance: {info.balance} satoshis")
-print(f"UTXOs: {len(info.utxos)}")
+let info = get_address_info("bc1q...", Network::Mainnet).unwrap();
+println!("Balance: {} satoshis", info.balance);
+println!("UTXOs: {}", info.utxos.len());
 
-with Wallet(network=Network.TESTNET) as wallet:
-    print(f"Wallet balance: {wallet.balance} sats")
+let wallet = Wallet::new(Network::Testnet);
+println!("Wallet balance: {} sats", wallet.balance().unwrap());
 ```
 
 #### 2.2 Transaction Inspection
 
 ```rust
-from brbitcoin import Wallet, get_transaction
+use brbitcoin::{Wallet, get_transaction};
 
-tx = get_transaction("aabb...", Network.REGTEST)
-print(f"Confirmations: {tx.confirmations}")
-for output in tx.outputs:
-    print(f"Output value: {output.value}")
+let tx = get_transaction("aabb...", Network::Regtest).unwrap();
+println!("Confirmations: {}", tx.confirmations);
+for output in tx.outputs {
+    println!("Output value: {}", output.value);
+}
 
-with Wallet.from_private_key("beef...") as wallet:
-    utxos = wallet.utxos()
-    for utxo in utxos:
-        print(f"UTXO: {utxo.txid}:{utxo.vout} - {utxo.value} sats")
+let wallet = Wallet::from_private_key("beef...", Network::Regtest);
+for utxo in wallet.utxos().unwrap() {
+    println!("UTXO: {}:{} - {} sats", utxo.txid, utxo.vout, utxo.value);
+}
 ```
 
 #### 2.3 Block Exploration
 
 ```rust
-from brbitcoin import get_block
+use brbitcoin::get_block;
 
-# By hash
-block = get_block("000000000019d6...", Network.MAINNET)
-print(f"Block height: {block.height}")
+let block = get_block::<Hash>("000000000019d6...", Network::Mainnet).unwrap();
+println!("Block height: {}", block.height);
 
-# By number
-genesis = get_block(0, Network.MAINNET)
-print(f"Genesis timestamp: {genesis.timestamp}")
+let genesis = get_block::<u32>(0, Network::Mainnet).unwrap();
+println!("Genesis timestamp: {}", genesis.timestamp);
 ```
 
 ### 3. Transaction Building
@@ -113,68 +112,64 @@ print(f"Genesis timestamp: {genesis.timestamp}")
 #### 3.1 High-Level (Recommended)
 
 ```rust
-from brbitcoin import Wallet, Fee
+use brbitcoin::{Wallet, Fee};
 
-RECEIVER = "tb123..."
-AMOUNT = 0.001 # BTC
+const RECEIVER: &str = "tb123...";
+const AMOUNT: u64 = 100_000; // 0.001 BTC
 
-with Wallet(network=Network.REGTEST) as wallet:
-    txid = wallet.send(to=RECEIVER, amount=AMOUNT)
-
-    print(f"Broadcasted TX ID: {txid}")
+let wallet = Wallet::new(Network::Regtest);
+let txid = wallet.send(RECEIVER, AMOUNT).unwrap();
+println!("Broadcasted TX ID: {}", txid);
 ```
 
 #### 3.2 Mid-Level Control
 
 ```rust
-from brbitcoin import Wallet, Transaction, to_btc
+use brbitcoin::{Wallet, Transaction};
 
-RECEIVER = "tb123..."
-AMOUNT = 100_000 # Satoshis == 0.001 BTC
-FEE = 500 # Satoshi == 0.0000005 BTC
+const RECEIVER: &str = "tb123...";
+const AMOUNT: u64 = 100_000; // Satoshis
+const FEE: u64 = 500; // Satoshis
 
-with Wallet.from_private_key("fff...") as wallet:
-    utxos = wallet.utxos()
+let wallet = Wallet::from_private_key("fff...", Network::Regtest);
+let utxos = wallet.utxos().unwrap();
 
-    txid = (
-        Transaction(network=wallet.network)
-        .add_input(utxos[0])
-        .add_output(RECEIVER, to_btc(AMOUNT))
-        .fee(to_btc(FEE))
-        # .estimate_fee()
-        .sign(wallet)
-        .broadcast()
-    )
-    print(f"Broadcasted TX ID: {txid}")
+let txid = Transaction::new(wallet.network())
+    .add_input(&utxos[0])
+    .add_output(RECEIVER, AMOUNT)
+    .fee(to_satoshis(FEE))
+    .sign(&wallet)
+    .broadcast()
+    .unwrap();
+
+println!("Broadcasted TX ID: {}", txid);
 ```
 
 #### 3.3 Low-Level Scripting
 
 ```rust
-from brbitcoin import Wallet, Script, Transaction
+use brbitcoin::{Wallet, Script, Transaction};
 
-# Create a P2SH lock script
-lock_script = (
-    Script()
+// Create a P2SH lock script
+let lock_script = Script::new()
     .push_op_dup()
-    .push_op_hash_160()
-    .push_bytes(pubkey_hash)
+    .push_op_hash160()
+    .push_bytes(&pubkey_hash)
     .push_op_equal_verify()
-    .push_op_check_sig()
-)
+    .push_op_check_sig();
 
-with Wallet(network=Network.REGTEST) as wallet:
-    inputs = wallet.utxos()
-    AMOUNT = 0.0001 # BTC
-    txid = (
-        Transaction(network=Network.REGTEST)
-        .add_input(inputs[0])
-        .add_output_script(lock_script, AMOUNT)
-        .sign(wallet)
-        .broadcast()
-    )
+let wallet = Wallet::new(Network::Regtest).unwrap();
+let utxos = wallet.utxos().unwrap();
+const AMOUNT: f64 = 0.0001; // BTC
 
-    print(f"Broadcasted TX ID: {txid}")
+let txid = Transaction::new(Network::Regtest)
+    .add_input(&utxos[0])
+    .add_output_script(&lock_script, AMOUNT)
+    .sign(&wallet)
+    .broadcast()
+    .unwrap();
+
+println!("Broadcasted TX ID: {}", txid);
 ```
 
 ### 4. Taproot Transactions (BIP340/341/342)
