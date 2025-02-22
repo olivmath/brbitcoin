@@ -52,13 +52,13 @@ let wallet = Wallet::create();
 println!("Regtest new address: {}", wallet.address());
 
 // Import from existing key
-PRIVATE_KEY="123456789abcdef..."
-let wallet = Wallet::from_private_key(PRIVATE_KEY, Network::TESTNET);
+let private_key = "123456789abcdef...";
+let wallet = Wallet::from_private_key(private_key, Network::Testnet);
 println!("Testnet address: {}", wallet.address());
 
 // Create from BIP39 mnemonic
-let MNEMONIC = "absorb lecture valley scissors giant evolve planet rotate siren chaos";
-let wallet = Wallet::from_mnemonic(MNEMONIC, Network::Mainnet);
+let mnemonic = "absorb lecture valley scissors giant evolve planet rotate siren chaos";
+let wallet = Wallet::from_mnemonic(mnemonic, Network::Mainnet);
 println!("Mainnet address: {}", wallet.address());
 ```
 
