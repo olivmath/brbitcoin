@@ -197,81 +197,90 @@ println!("Broadcasted TX ID: {}", txid);
 #### 4.1 Generating Taproot Address
 
 ```rust
-from brbitcoin import Wallet, TaprootBuilder, Script, Op
+use brbitcoin::{Wallet, TaprootBuilder, Script};
 
-# Generate internal key
-with Wallet.create(network=Network.MAINNET) as wallet:
-    internal_key = wallet.taproot_internal_key()
+let wallet = Wallet::new_random(Network::Mainnet).unwrap();
+let internal_key = wallet.taproot_internal_key();
 
-    # Build Taproot script tree
-    script = Script().push_op_hash_160().push_bytes(b"my_hash160").push_op_equal()
-    taproot = TaprootBuilder(internal_key).add_leaf_script(script).finalize()
+let script = Script::new()
+    .push_op_hash160()
+    .push_bytes(b"my_hash160")
+    .push_op_equal();
 
-    print(f"Taproot Address: {taproot.address}")
-    print(f"Control Block: {taproot.control_block.hex()}")
+let taproot = TaprootBuilder::new(internal_key)
+    .add_leaf_script(&script)
+    .finalize()
+    .unwrap();
+
+println!("Taproot Address: {}", taproot.address);
+println!("Control Block: {}", hex::encode(taproot.control_block));
 ```
 
 #### 4.2 Sending to Taproot Address
 
 ```rust
-with Wallet(network=Network.REGTEST) as sender:
-    receiver_taproot = "bc1p..."
+let wallet = Wallet::new(Network::Regtest).unwrap();
+const RECEIVER_TAPROOT: &str = "bc1p...";
 
-    txid = (
-        Transaction(network=Network.REGTEST)
-        .add_input(sender.utxos()[0])
-        .add_output_taproot(receiver_taproot, 0.01)  # 0.01 BTC
-        .set_change(sender.address)
-        .estimate_fee()
-        .sign(sender)
-        .broadcast()
-    )
-    print(f"Taproot TX broadcasted: {txid}")
+let txid = Transaction::new(Network::Regtest)
+    .add_input(&wallet.utxos().unwrap()[0])
+    .add_output_taproot(RECEIVER_TAPROOT, 100_000) // 0.0001 BTC
+    .set_change(&wallet.address())
+    .estimate_fee()
+    .sign(&wallet)
+    .broadcast()
+    .unwrap();
+
+println!("Taproot TX broadcasted: {}", txid);
 ```
 
 #### 4.3 Spending from Taproot (Key Path)
 
 ```rust
-# Spending using Schnorr signature
-with Wallet.from_taproot_internal_key("internal_key_hex") as wallet:
-    utxo = wallet.utxos()[0]
+use brbitcoin::{Wallet, Transaction, Network};
 
-    tx = (
-        Transaction(network=Network.MAINNET)
-        .add_taproot_input(utxo)
-        .add_output("bc1q...", 0.009)
-        .set_change(wallet.taproot_address)
-        .estimate_fee()
-        .sign_taproot(wallet)
-        .broadcast()
-    )
-    print(f"Key path spend TX: {tx.txid}")
+// Spending using Schnorr signature
+let wallet = Wallet::from_taproot_internal_key("internal_key_hex");
+let utxo = wallet.utxos().unwrap()[0];
+
+let txid = Transaction::new(Network::Mainnet)
+    .add_taproot_input(&utxo)
+    .add_output("bc1q...", 9000) // 0.009 BTC in satoshis
+    .set_change(&wallet.taproot_address())
+    .estimate_fee()
+    .sign_taproot(&wallet)
+    .broadcast()
+    .unwrap();
+
+println!("Key path spend TX: {}", txid);
 ```
 
 #### 4.4 Spending from Taproot (Script Path)
 
 ```rust
-from brbitcoin import TaprootScriptSolution, Script
+use brbitcoin::{Wallet, Transaction, Network, Script, TaprootScriptSolution, hash160};
 
-# Reveal script and provide solution
+// Reveal script and provide solution
+let preimage = b"secret123";
+let script = Script::new()
+    .push_op_hash160()
+    .push_bytes(&hash160(preimage))
+    .push_op_equal();
 
-preimage = b"secret123"
-script = Script().push_op_hash160().push_bytes(hash160(preimage)).push_op_equal()
+let wallet = Wallet::new(Network::Regtest).unwrap();
+let solution = TaprootScriptSolution {
+    script,
+    solution_ops: vec![Script::op_push_bytes(), preimage],
+};
 
-with Wallet(network=Network.REGTEST) as spender:
-    solution = TaprootScriptSolution(
-        script=script,
-        solution_ops=[Script.op_push_bytes, preimage]
-    )
+let txid = Transaction::new(Network::Regtest)
+    .add_taproot_input(&wallet.utxos().unwrap()[0], &solution)
+    .add_output("bc1q...", 9500) // 0.0095 BTC in satoshis
+    .sign_taproot(&wallet)
+    .broadcast()
+    .unwrap();
 
-    tx = (
-        Transaction(network=Network.REGTEST)
-        .add_taproot_input(utxo, solution=solution)
-        .add_output("bc1q...", 0.0095)
-        .sign_taproot(spender)
-        .broadcast()
-    )
-    print(f"Script path spend TX: {tx.txid}")
+println!("Script path spend TX: {}", txid);
 ```
 
 #### 4.5 Taproot Benefits
@@ -453,4 +462,4 @@ with Wallet.from_hardware_device(
 
 ---
 
-# [License: MIT](../LICENSE)
+## [License: MIT](../LICENSE)
