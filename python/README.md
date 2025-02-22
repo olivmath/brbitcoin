@@ -239,7 +239,12 @@ from brbitcoin import TaprootScriptSolution, Script
 # Reveal script and provide solution
 
 preimage = b"secret123"
-script = Script().push_op_hash160().push_bytes(hash160(preimage)).push_op_equal()
+script = (
+    Script()
+    .push_op_hash160()
+    .push_bytes(hash160(preimage))
+    .push_op_equal()
+)
 
 with Wallet(network=Network.REGTEST) as spender:
     solution = TaprootScriptSolution(
@@ -436,4 +441,4 @@ with Wallet.from_hardware_device(
 
 ---
 
-## [License: MIT](../LICENSE)
+# [License: MIT](../LICENSE)
