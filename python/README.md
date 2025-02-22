@@ -436,4 +436,4 @@ with Wallet.from_hardware_device(
 
 ---
 
-# [License: MIT](../LICENSE)
+## [License: MIT](../LICENSE)
