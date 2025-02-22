@@ -62,82 +62,27 @@ let wallet = Wallet::from_mnemonic(MNEMONIC, Network::Mainnet);
 println!("Mainnet address: {}", wallet.address());
 ```
 
-![hello-world](https://github.com/user-attachments/assets/65597643-95cf-4583-8653-26eb2deb3fc9)
-
-## Design Principles
-
-- **Automatic Zeroization**: Sensitive data wiped from memory using context managers
-- **Hierarchical Security**: BIP32/BIP39/BIP44 compliant HD wallets with encrypted backups
-- **Network Agnostic**: Unified API for Regtest/Testnet/Mainnet operations
-- **Full RPC Access**: Direct Bitcoin Core JSON-RPC integration
-- **Type Safety**: Comprehensive type hints for better developer experience
-
-## Features
-
-- 🔐 Secure key management with memory zeroization
-- 💳 HD wallet support (BIP32, BIP39, BIP44, BIP84)
-- 📡 Multiple network backends (Bitcoin Core, Electrum, Custom)
-- 📦 PSBT (Partially Signed Bitcoin Transaction) support
-- ⚡️ Async-first architecture for network operations
-- 🔄 UTXO management with automatic coin selection
-- 📊 Blockchain data inspection utilities
-- 🛠️ Low-level Bitcoin script builder
-
-## 📦 Installation
-
-### Via Cargo (Recommended)
-
-```
-cargo add brbitcoin
-```
-
-### Via toml
-
-```toml
-[dependencies]
-brbitcoin = "0.1"
-```
-
-## 🚀 Quick Start
-
-> [!WARNING]
-> Always test with Regtest before MAINNET usage.
-
-### 1. Wallet Management
-
-```rust
-use brbitcoin::{Wallet, Network};
-use std::env;
-
-
-// Create random HD wallet (testnet by default)
-let wallet = Wallet::create();
-println!("Testnet new address: {}", wallet.address());
-wallet.export_encrypted("wallet.json", &env::var("WALLET_PASS").unwrap());
-
-// Import from existing key
-let wallet = Wallet::from_private_key("beefcafe...", Network::REGTEST);
-println!("Regtest address: {}", wallet.address());
-
-// Create from BIP39 mnemonic
-let mnemonic = "absorb lecture valley scissors giant evolve planet rotate siren chaos";
-let wallet = Wallet::from_mnemonic(mnemonic, Network::Mainnet);
-println!("Mainnet address: {}", wallet.address());
-```
-
 ### 2. Blockchain Interaction
 
 #### 2.1 Address Information
 
 ```rust
-use brbitcoin::{Wallet, get_address_info};
+use brbitcoin::{Wallet, Address, get_address_info};
 
-let info = get_address_info("bc1q...", Network::Mainnet).unwrap();
-println!("Balance: {} satoshis", info.balance);
-println!("UTXOs: {}", info.utxos.len());
+let address = Address::from("bc1q...");
+if let Ok(info) = get_address_info(address, Network::Mainnet) {
+    println!("Balance: {} satoshis", info.balance);
+    println!("UTXOs: {}", info.utxos.len());
+} else {
+    println!("Failed to retrieve address info.");
+}
 
 let wallet = Wallet::new(Network::Testnet);
-println!("Wallet balance: {} sats", wallet.balance().unwrap());
+if let Ok(balance) = wallet.balance() {
+    println!("Wallet balance: {} sats", balance);
+} else {
+    println!("Failed to retrieve wallet balance.");
+}
 ```
 
 #### 2.2 Transaction Inspection
