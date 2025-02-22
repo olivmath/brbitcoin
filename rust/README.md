@@ -25,6 +25,68 @@
 
 ### Via Cargo (Recommended)
 
+```bash
+cargo add brbitcoin
+```
+
+### Via toml
+
+```toml
+[dependencies]
+brbitcoin = "0.1"
+```
+
+## 🚀 Quick Start
+
+> [!WARNING]
+> Always test with REGTEST before MAINNET usage.
+
+### 1. Wallet Management
+
+```rust
+use brbitcoin::{Wallet, Network};
+use std::env;
+
+// Create random HD wallet (regtest by default)
+let wallet = Wallet::create();
+println!("Regtest new address: {}", wallet.address());
+
+// Import from existing key
+PRIVATE_KEY="123456789abcdef..."
+let wallet = Wallet::from_private_key(PRIVATE_KEY, Network::TESTNET);
+println!("Testnet address: {}", wallet.address());
+
+// Create from BIP39 mnemonic
+let MNEMONIC = "absorb lecture valley scissors giant evolve planet rotate siren chaos";
+let wallet = Wallet::from_mnemonic(MNEMONIC, Network::Mainnet);
+println!("Mainnet address: {}", wallet.address());
+```
+
+![hello-world](https://github.com/user-attachments/assets/65597643-95cf-4583-8653-26eb2deb3fc9)
+
+## Design Principles
+
+- **Automatic Zeroization**: Sensitive data wiped from memory using context managers
+- **Hierarchical Security**: BIP32/BIP39/BIP44 compliant HD wallets with encrypted backups
+- **Network Agnostic**: Unified API for Regtest/Testnet/Mainnet operations
+- **Full RPC Access**: Direct Bitcoin Core JSON-RPC integration
+- **Type Safety**: Comprehensive type hints for better developer experience
+
+## Features
+
+- 🔐 Secure key management with memory zeroization
+- 💳 HD wallet support (BIP32, BIP39, BIP44, BIP84)
+- 📡 Multiple network backends (Bitcoin Core, Electrum, Custom)
+- 📦 PSBT (Partially Signed Bitcoin Transaction) support
+- ⚡️ Async-first architecture for network operations
+- 🔄 UTXO management with automatic coin selection
+- 📊 Blockchain data inspection utilities
+- 🛠️ Low-level Bitcoin script builder
+
+## 📦 Installation
+
+### Via Cargo (Recommended)
+
 ```
 cargo add brbitcoin
 ```
