@@ -90,15 +90,22 @@ if let Ok(balance) = wallet.balance() {
 ```rust
 use brbitcoin::{Wallet, get_transaction};
 
-let tx = get_transaction("aabb...", Network::Regtest).unwrap();
-println!("Confirmations: {}", tx.confirmations);
-for output in tx.outputs {
-    println!("Output value: {}", output.value);
+if let Ok(tx) = get_transaction("aabb...", Network::Regtest) {
+    println!("Confirmations: {}", tx.confirmations);
+    for output in tx.outputs {
+        println!("Output value: {}", output.value);
+    }
+} else {
+    println!("Failed to retrieve transaction.");
 }
 
 let wallet = Wallet::from_private_key("beef...", Network::Regtest);
-for utxo in wallet.utxos().unwrap() {
-    println!("UTXO: {}:{} - {} sats", utxo.txid, utxo.vout, utxo.value);
+if let Ok(utxos) = wallet.utxos() {
+    for utxo in utxos {
+        println!("UTXO: {}:{} - {} sats", utxo.txid, utxo.vout, utxo.value);
+    }
+} else {
+    println!("Failed to retrieve UTXOs.");
 }
 ```
 
@@ -107,11 +114,17 @@ for utxo in wallet.utxos().unwrap() {
 ```rust
 use brbitcoin::get_block;
 
-let block = get_block::<Hash>("000000000019d6...", Network::Mainnet).unwrap();
-println!("Block height: {}", block.height);
+if let Ok(block) = get_block::<Hash>("000000000019d6...", Network::Mainnet) {
+    println!("Block height: {}", block.height);
+} else {
+    println!("Failed to retrieve block information.");
+}
 
-let genesis = get_block::<u32>(0, Network::Mainnet).unwrap();
-println!("Genesis timestamp: {}", genesis.timestamp);
+if let Ok(genesis) = get_block::<u32>(0, Network::Mainnet) {
+    println!("Genesis timestamp: {}", genesis.timestamp);
+} else {
+    println!("Failed to retrieve genesis block information.");
+}
 ```
 
 ### 3. Transaction Building
