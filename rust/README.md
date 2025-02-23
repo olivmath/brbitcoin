@@ -70,6 +70,7 @@ println!("Mainnet address: {}", wallet.address());
 use brbitcoin::{Wallet, Address, get_address_info};
 
 let address = Address::from("bc1q...");
+
 if let Ok(info) = get_address_info(address, Network::Mainnet) {
     println!("Balance: {} satoshis", info.balance);
     println!("UTXOs: {}", info.utxos.len());
@@ -127,45 +128,51 @@ if let Ok(genesis) = get_block::<u32>(0, Network::Mainnet) {
 }
 ```
 
-### 3. Transaction Building
+### 3. Transaction Construction
 
-#### 3.1 High-Level (Recommended)
+#### 3.1 High-Level Transaction Building (Recommended)
 
 ```rust
 use brbitcoin::{Wallet, Fee};
 
-const RECEIVER: &str = "tb123...";
-const AMOUNT: u64 = 100_000; // 0.001 BTC
+const receiver: &str = "tb123...";
+const amount: u64 = 100_000; // 0.001 BTC
 
-let wallet = Wallet::new(Network::Regtest);
-let txid = wallet.send(RECEIVER, AMOUNT).unwrap();
+let wallet = Wallet::new();
+let txid = wallet.send(receiver, amount).unwrap();
+
 println!("Broadcasted TX ID: {}", txid);
 ```
 
-#### 3.2 Mid-Level Control
+#### 3.2 Mid-Level Transaction Control
 
 ```rust
 use brbitcoin::{Wallet, Transaction};
 
-const RECEIVER: &str = "tb123...";
-const AMOUNT: u64 = 100_000; // Satoshis
-const FEE: u64 = 500; // Satoshis
+let receiver = "tb123...";
+let amount = 100_000; // Satoshis
+let fee = 500; // Satoshis
 
-let wallet = Wallet::from_private_key("fff...", Network::Regtest);
-let utxos = wallet.utxos().unwrap();
+let wallet = Wallet::new();
+if let Ok(utxos) = wallet.utxos() {
+    let txid = Transaction::new(wallet.network())
+        .add_input(&utxos[0])
+        .add_output(receiver, amount)
+        .fee(fee)
+        .sign(&wallet)
+        .broadcast();
 
-let txid = Transaction::new(wallet.network())
-    .add_input(&utxos[0])
-    .add_output(RECEIVER, AMOUNT)
-    .fee(to_satoshis(FEE))
-    .sign(&wallet)
-    .broadcast()
-    .unwrap();
-
-println!("Broadcasted TX ID: {}", txid);
+    if let Ok(txid) = txid {
+        println!("Transação transmitida! TX ID: {}", txid);
+    } else {
+        eprintln!("Erro ao transmitir transação: {:?}", txid.err());
+    }
+} else {
+    eprintln!("Erro ao obter UTXOs: {:?}", wallet.utxos().err());
+}
 ```
 
-#### 3.3 Low-Level Scripting
+#### 3.3 Low-Level Transaction Scripting
 
 ```rust
 use brbitcoin::{Wallet, Script, Transaction};
@@ -178,18 +185,24 @@ let lock_script = Script::new()
     .push_op_equal_verify()
     .push_op_check_sig();
 
-let wallet = Wallet::new(Network::Regtest).unwrap();
-let utxos = wallet.utxos().unwrap();
-const AMOUNT: f64 = 0.0001; // BTC
+let wallet = Wallet::new();
+if let Ok(utxos) = wallet.utxos() {
+    let amount: u64 = 10_000; // 0.0001 BTC
 
-let txid = Transaction::new(Network::Regtest)
-    .add_input(&utxos[0])
-    .add_output_script(&lock_script, AMOUNT)
-    .sign(&wallet)
-    .broadcast()
-    .unwrap();
+    let txid = Transaction::new(Network::Regtest)
+        .add_input(&utxos[0])
+        .add_output_script(&lock_script, amount)
+        .sign(&wallet)
+        .broadcast();
 
-println!("Broadcasted TX ID: {}", txid);
+    if let Ok(txid) = txid {
+        println!("Transação transmitida! TX ID: {}", txid);
+    } else {
+        eprintln!("Erro ao transmitir transação: {:?}", txid.err());
+    }
+} else {
+    eprintln!("Erro ao obter UTXOs: {:?}", wallet.utxos().err());
+}
 ```
 
 ### 4. Taproot Transactions (BIP340/341/342)
