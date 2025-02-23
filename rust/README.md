@@ -212,7 +212,7 @@ if let Ok(utxos) = wallet.utxos() {
 ```rust
 use brbitcoin::{Wallet, TaprootBuilder, Script};
 
-let wallet = Wallet::new_random(Network::Mainnet).unwrap();
+let wallet = Wallet::new(Network::Mainnet).unwrap();
 let internal_key = wallet.taproot_internal_key();
 
 let script = Script::new()
@@ -220,31 +220,31 @@ let script = Script::new()
     .push_bytes(b"my_hash160")
     .push_op_equal();
 
-let taproot = TaprootBuilder::new(internal_key)
+if let Ok(taproot) = TaprootBuilder::new(internal_key)
     .add_leaf_script(&script)
-    .finalize()
-    .unwrap();
-
-println!("Taproot Address: {}", taproot.address);
-println!("Control Block: {}", hex::encode(taproot.control_block));
+    .finalize() {
+    println!("Taproot Address: {}", taproot.address);
+    println!("Control Block: {}", hex::encode(taproot.control_block));
+}
 ```
 
 #### 4.2 Sending to Taproot Address
 
 ```rust
-let wallet = Wallet::new(Network::Regtest).unwrap();
+let wallet = Wallet::new().unwrap();
 const RECEIVER_TAPROOT: &str = "bc1p...";
 
-let txid = Transaction::new(Network::Regtest)
+if let Ok(txid) = Transaction::new(Network::Regtest)
     .add_input(&wallet.utxos().unwrap()[0])
     .add_output_taproot(RECEIVER_TAPROOT, 100_000) // 0.0001 BTC
     .set_change(&wallet.address())
     .estimate_fee()
     .sign(&wallet)
-    .broadcast()
-    .unwrap();
-
-println!("Taproot TX broadcasted: {}", txid);
+    .broadcast() {
+    println!("Taproot TX broadcasted: {}", txid);
+} else {
+    eprintln!("Erro ao transmitir transação Taproot: {:?}", txid.err());
+}
 ```
 
 #### 4.3 Spending from Taproot (Key Path)
@@ -280,7 +280,7 @@ let script = Script::new()
     .push_bytes(&hash160(preimage))
     .push_op_equal();
 
-let wallet = Wallet::new(Network::Regtest).unwrap();
+let wallet = Wallet::new().unwrap();
 let solution = TaprootScriptSolution {
     script,
     solution_ops: vec![Script::op_push_bytes(), preimage],
